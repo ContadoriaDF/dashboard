@@ -32,10 +32,10 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ── Caminhos ───────────────────────────────────────────────────────────────
-BASE_DIR   = Path(__file__).parent
-OUTPUT_DIR = BASE_DIR / "data"
+BASE_DIR    = Path(__file__).parent
+OUTPUT_DIR  = BASE_DIR / "data"
+QUERIES_DIR = BASE_DIR / "data" / "queries"
 OUTPUT_DIR.mkdir(exist_ok=True)
-BO_DIR     = BASE_DIR / "balanco_orcamentario"
 
 # Schema Oracle dinâmico: mil2026, mil2027, ...
 SCHEMA_ANO = f"mil{datetime.now().year}"
@@ -46,33 +46,14 @@ SCHEMA_ANO = f"mil{datetime.now().year}"
 #
 #  Cada item aceita:
 #    "file"     → nome do arquivo JSON gerado em data/
-#    "query"    → SQL inline (string)
-#    "sql_file" → nome do arquivo .sql dentro de balanco_orcamentario/
+#    "sql_file" → nome do arquivo .sql dentro de data/queries/
 #                 (suporte ao placeholder {SCHEMA_ANO})
-#
-#  Use "query" para SQLs simples e "sql_file" para SQLs complexos
-#  mantidos em arquivos separados.
 # ──────────────────────────────────────────────────────────────────────────
 QUERIES = [
     {
-        # Saldo contábil por função e subfunção
+        # Saldo contábil por função e subfunção (dashboard funcao-subfuncao)
         "file": "saldo_funcao_subfuncao.json",
-        "query": """
-            SELECT
-                SC.*,
-                FU.NOFUNCAO,
-                SU.NOSUBFUNCAO,
-                SUBSTR(SC.CONATUREZA, 3, 2) AS COMODALIDADE
-            FROM MIL2026.SALDOCONTABIL SC
-            LEFT JOIN MIL2026.FUNCAO    FU ON SC.COFUNCAO    = FU.COFUNCAO
-            LEFT JOIN MIL2026.SUBFUNCAO SU ON SC.COSUBFUNCAO = SU.COSUBFUNCAO
-            WHERE (
-                SUBSTR(SC.COCONTACONTABIL, 1, 5) IN ('52211','52212','52215','52219','62213')
-                OR SUBSTR(SC.COCONTACONTABIL, 1, 7) IN ('6221303','6221304','6221307')
-            )
-            AND SC.INMES IN (1, 2)
-            ORDER BY FU.COFUNCAO, SU.COSUBFUNCAO
-        """,
+        "sql_file": "saldocontabil_funcao_subfuncao.sql",
     },
     {
         # Receita Orçamentária (Balanço Orçamentário)
@@ -128,19 +109,17 @@ def save_json(filename: str, data: list[dict]):
 
 def read_sql(filename: str) -> str:
     """
-    Lê arquivo .sql de balanco_orcamentario/,
+    Lê arquivo .sql de data/queries/,
     remove comentários de linha (--) e substitui {SCHEMA_ANO}.
     """
-    path = BO_DIR / filename
+    path = QUERIES_DIR / filename
     sql = path.read_text(encoding="utf-8")
     lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
     return "\n".join(lines).replace("{SCHEMA_ANO}", SCHEMA_ANO).strip()
 
 
 def resolve_query(item: dict) -> str:
-    """Retorna o SQL do item, seja inline ou lido de arquivo."""
-    if "query" in item:
-        return item["query"]
+    """Retorna o SQL lido do arquivo em data/queries/."""
     return read_sql(item["sql_file"])
 
 
