@@ -5,6 +5,9 @@ on:
     - cron: "0 9 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   etl:
     runs-on: self-hosted
@@ -45,15 +48,12 @@ jobs:
           Write-Host "git status:"
           git status
 
-          Write-Host "git log:"
-          git log --oneline -3
-
           git diff --staged --quiet
           if ($LASTEXITCODE -ne 0) {
             $date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm UTC')
             git commit -m "chore: atualiza dados ETL $date"
             Write-Host "git commit codigo de saida: $LASTEXITCODE"
-            git push 2>&1
+            git push
             Write-Host "git push codigo de saida: $LASTEXITCODE"
           } else {
             Write-Host "Sem alteracoes para commitar."
