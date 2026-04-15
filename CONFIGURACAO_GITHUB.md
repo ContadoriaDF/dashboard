@@ -321,11 +321,11 @@ git commit -m "ci: configura self-hosted runner"
 git push
 ```
 
-Depois, no repositório: **Actions → ETL Oracle → JSON → Run workflow**
+Depois, no repositório: **Actions → ETL Oracle - JSON → Run workflow**
 
-Acompanhe os logs em tempo real. Se tudo estiver correto, os JSONs serão publicados
-na Release `dados-etl` e estarão acessíveis em:
-`https://github.com/contadoria2026/db-dashboard-gdf/releases/tag/dados-etl`
+Acompanhe os logs em tempo real. Se tudo estiver correto, os JSONs `receita.json` e
+`saldo_funcao_subfuncao.json` serão commitados automaticamente na pasta `data/` do repositório
+e o GitHub Pages passará a servi-los aos dashboards.
 
 ---
 
@@ -336,5 +336,44 @@ na Release `dados-etl` e estarão acessíveis em:
 | **Máquina ligada** | O runner precisa estar rodando no horário agendado (06h Brasília). Se a máquina estiver desligada, o job é pulado. |
 | **Sem `.env` no runner** | As credenciais vêm dos **Secrets** do GitHub (`DB_USER`, `DB_PASSWORD` etc.), não do `.env` local. |
 | **`ORACLE_CLIENT_PATH`** | Se usar thick mode (Oracle Client instalado), configure esse Secret com o caminho da DLL (ex: `C:\oracle\instantclient_21_9`). Deixe em branco para thin mode. |
-| **Tamanho dos JSONs** | Os JSONs são publicados via GitHub Release (até 2 GB), não commitados no repositório. O limite de 100 MB do git não se aplica. |
+| **Tamanho dos JSONs** | O limite do GitHub é 100 MB por arquivo. `receita.json` e `saldo_funcao_subfuncao.json` ficam abaixo desse limite. `despesa.json` ultrapassa e está desativado temporariamente no `etl.py`. |
+| **Permissão de escrita** | O workflow precisa de `permissions: contents: write` no `etl.yml` para que o runner consiga fazer push dos JSONs. |
 | **Segurança** | O runner executa código do repositório — mantenha o repositório privado ou restrinja quem pode abrir Pull Requests. |
+
+---
+
+## Fluxo do dia a dia
+
+O runner cuida sozinho da atualização dos dados. Você só interage com o git quando for alterar o código.
+
+**Fluxo automático (sem intervenção):**
+```
+Todo dia às 06h
+  Runner executa ETL
+    → gera JSONs em sua pasta local (_work/...)
+    → commit automático
+    → push para o GitHub
+    → GitHub Pages atualiza os dashboards
+```
+
+**Quando for alterar código (HTML, SQL, etl.py etc.):**
+```powershell
+cd "C:\Users\james.coelho\Documents\AUTOMATIZAÇÃO RELATÓRIOS\DB_JasonGitHub"
+git pull                   # baixa os JSONs que o runner publicou desde o último pull
+# ... faz as alterações ...
+git add arquivo_alterado
+git commit -m "descricao da alteracao"
+git push
+```
+
+> **Por que o `git pull` antes?** O runner faz push direto do seu workspace para o GitHub.
+> Sua pasta local não é atualizada automaticamente. Se você tentar fazer push sem antes
+> sincronizar, o git rejeita com o erro `rejected (fetch first)`.
+
+**Resumo dos três fluxos:**
+
+| Quem | De | Para | Como |
+|------|----|------|------|
+| Runner | Oracle | GitHub | automático (ETL + commit + push) |
+| Você | GitHub | pasta local | `git pull` |
+| Você | pasta local | GitHub | `git add` + `git commit` + `git push` |
