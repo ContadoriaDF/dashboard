@@ -60,16 +60,16 @@ QUERIES = [
         "file": "receita.json",
         "sql_file": "RECEITA.sql",
     },
-    {
-        # Despesa Orçamentária (Balanço Orçamentário)
-        "file": "despesa.json",
-        "sql_file": "DESPESA.sql",
-    },
-    {
-        # Créditos Adicionais (complementa a despesa no dashboard)
-        "file": "creditos_adicionais.json",
-        "sql_file": "CREDITOS_ADICIONAIS.sql",
-    },
+    # Despesa e Créditos Adicionais desativados temporariamente —
+    # despesa.json ultrapassa 100 MB. Reativar após definir solução de tamanho.
+    # {
+    #     "file": "despesa.json",
+    #     "sql_file": "DESPESA.sql",
+    # },
+    # {
+    #     "file": "creditos_adicionais.json",
+    #     "sql_file": "CREDITOS_ADICIONAIS.sql",
+    # },
     # Adicione mais queries aqui seguindo o mesmo padrão.
 ]
 
@@ -113,6 +113,8 @@ def read_sql(filename: str) -> str:
     remove comentários de linha (--) e substitui {SCHEMA_ANO}.
     """
     path = QUERIES_DIR / filename
+    if not path.exists():
+        raise FileNotFoundError(f"Arquivo SQL não encontrado: {path}")
     sql = path.read_text(encoding="utf-8")
     lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
     return "\n".join(lines).replace("{SCHEMA_ANO}", SCHEMA_ANO).strip()
@@ -173,7 +175,9 @@ def run():
                     data = fetch(cur, resolve_query(item))
                     save_json(item["file"], data)
                 except Exception as e:
-                    log.error(f"  ✗ Erro em {item['file']}: {e}")
+                    log.error(f"  ✗ Erro em {item['file']}: {type(e).__name__}: {e}")
+                    import traceback
+                    traceback.print_exc()
 
     pool.close()
     log.info("ETL concluído com sucesso.")

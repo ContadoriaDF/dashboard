@@ -4,51 +4,50 @@
 -- Não colocar ponto-e-vírgula no final
 -- Contas: empenhada 622130000-622139999, liquidada 622130300/400/700, paga 622920104
 --
--- IMPORTANTE: JOINs com classificacaoorcamentaria usam subquery com
--- GROUP BY para garantir 1 linha por código, evitando duplicação
--- (produto cartesiano nas UGs 900101 e 320203).
+-- Os registros são agregados (GROUP BY) por todas as dimensões de classificação.
+-- O dashboard agrega no browser de qualquer forma; a pré-agregação reduz o tamanho do JSON.
 
 SELECT
     v.coexercicio,
     v.inmes,
     v.coug,
-    v.noug,
+    MIN(v.noug)                                    AS noug,
     v.cocontacontabil,
-    v.vadebito,
-    v.vacredito,
-    CASE
+    SUM(v.vadebito)                                AS vadebito,
+    SUM(v.vacredito)                               AS vacredito,
+    SUM(CASE
         WHEN v.cocontacontabil LIKE '5%' THEN (v.vadebito - v.vacredito)
         WHEN v.cocontacontabil LIKE '6%' THEN (v.vacredito - v.vadebito)
         ELSE 0
-    END AS SALDO,
+    END)                                           AS saldo,
 
     -- Classificação da despesa (conatureza)
-    v.conatureza || '00' AS DESPESA,
-    c_desp.NOME AS NOME_DESPESA,
+    v.conatureza || '00'                           AS despesa,
+    MIN(c_desp.NOME)                               AS nome_despesa,
 
-    SUBSTR(v.conatureza, 1, 1) || '0000000' AS CATEGORIA_ECONOMICA,
-    c_cat_desp.NOME AS NOME_CATEGORIA_ECONOMICA,
+    SUBSTR(v.conatureza, 1, 1) || '0000000'        AS categoria_economica,
+    MIN(c_cat_desp.NOME)                           AS nome_categoria_economica,
 
-    SUBSTR(v.conatureza, 1, 2) || '000000' AS GND,
-    c_gnd.NOME AS NOME_GND,
+    SUBSTR(v.conatureza, 1, 2) || '000000'         AS gnd,
+    MIN(c_gnd.NOME)                                AS nome_gnd,
 
-    SUBSTR(v.conatureza, 3, 2) AS INTRA,
+    SUBSTR(v.conatureza, 3, 2)                     AS intra,
 
     -- Fonte de recurso
-    TO_CHAR(v.cofonte) AS FONTE,
-    SUBSTR(TO_CHAR(v.cofonte), 1, 4) AS FONTE_AGRUPADA,
-    fr.COFONTEFEDERAL,
-    fr_nome.NOFONTE AS NOME_FONTE,
+    TO_CHAR(v.cofonte)                             AS fonte,
+    SUBSTR(TO_CHAR(v.cofonte), 1, 4)               AS fonte_agrupada,
+    MIN(fr.COFONTEFEDERAL)                         AS cofontefederal,
+    MIN(fr_nome.NOFONTE)                           AS nome_fonte,
 
     -- Subelemento (8 dígitos: posições 33 a 40 da conta corrente)
-    SUBSTR(v.cocontacorrente, 33, 8) AS SUBELEMENTO,
-    c_sub.NOME AS NOME_SUBELEMENTO,
+    SUBSTR(v.cocontacorrente, 33, 8)               AS subelemento,
+    MIN(c_sub.NOME)                                AS nome_subelemento,
 
     -- Função e subfunção
     v.cofuncao,
-    f.NOFUNCAO,
+    MIN(f.NOFUNCAO)                                AS nofuncao,
     v.cosubfuncao,
-    sf.NOSUBFUNCAO
+    MIN(sf.NOSUBFUNCAO)                            AS nosubfuncao
 
 FROM mil2001.saldocontabil_ex v
 
@@ -98,3 +97,18 @@ WHERE (
       TO_CHAR(EXTRACT(YEAR FROM SYSDATE)),
       TO_CHAR(EXTRACT(YEAR FROM SYSDATE) - 1)
   )
+
+GROUP BY
+    v.coexercicio,
+    v.inmes,
+    v.coug,
+    v.cocontacontabil,
+    v.conatureza,
+    SUBSTR(v.conatureza, 1, 1),
+    SUBSTR(v.conatureza, 1, 2),
+    SUBSTR(v.conatureza, 3, 2),
+    TO_CHAR(v.cofonte),
+    SUBSTR(TO_CHAR(v.cofonte), 1, 4),
+    SUBSTR(v.cocontacorrente, 33, 8),
+    v.cofuncao,
+    v.cosubfuncao
