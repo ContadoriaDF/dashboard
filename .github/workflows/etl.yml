@@ -28,12 +28,13 @@ jobs:
         run: python etl.py
 
       - name: Commitar JSONs gerados
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/contadoria2026/db-dashboard-gdf.git
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/contadoria2026/db-dashboard-gdf.git
           git add data/saldo_funcao_subfuncao.json data/receita.json
           git diff --staged --quiet || git commit -m "chore: atualiza dados ETL $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
