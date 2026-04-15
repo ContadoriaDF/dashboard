@@ -28,13 +28,28 @@ jobs:
         run: python etl.py
 
       - name: Commitar JSONs gerados
-        shell: bash
+        shell: powershell
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          Write-Host "=== Arquivos gerados em data/ ==="
+          Get-ChildItem data\*.json -ErrorAction SilentlyContinue | Format-Table Name, Length
+
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/contadoria2026/db-dashboard-gdf.git
+          git remote set-url origin "https://x-access-token:$env:GITHUB_TOKEN@github.com/contadoria2026/db-dashboard-gdf.git"
+
           git add data/saldo_funcao_subfuncao.json data/receita.json
-          git diff --staged --quiet || git commit -m "chore: atualiza dados ETL $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git push
+
+          Write-Host "=== git status apos add ==="
+          git status
+
+          git diff --staged --quiet
+          if ($LASTEXITCODE -ne 0) {
+            $date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm UTC')
+            git commit -m "chore: atualiza dados ETL $date"
+            git push
+            Write-Host "Push concluido com sucesso."
+          } else {
+            Write-Host "Nenhuma alteracao para commitar."
+          }
