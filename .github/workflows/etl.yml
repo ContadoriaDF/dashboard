@@ -30,31 +30,38 @@ jobs:
           ORACLE_CLIENT_PATH:       ${{ secrets.ORACLE_CLIENT_PATH }}
         run: python etl.py
 
-      - name: Commitar JSONs gerados
+      - name: Publicar JSON.GZ no GitHub Releases (dados-latest)
         shell: powershell
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          Write-Host "Arquivos em data/"
-          Get-ChildItem data\ -ErrorAction SilentlyContinue | Format-Table Name, Length
+          Write-Host "Arquivos gerados em data/gz/"
+          Get-ChildItem data\gz\ -ErrorAction SilentlyContinue | Format-Table Name, Length
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:$env:GITHUB_TOKEN@github.com/contadoria2026/db-dashboard-gdf.git"
-
-          git add data/saldo_funcao_subfuncao.json data/receita.json
-          Write-Host "git add codigo de saida: $LASTEXITCODE"
-
-          Write-Host "git status:"
-          git status
-
-          git diff --staged --quiet
+          # Garante que o release 'dados-latest' existe (cria se necessário)
+          $releaseExists = gh release view dados-latest 2>$null
           if ($LASTEXITCODE -ne 0) {
-            $date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm UTC')
-            git commit -m "chore: atualiza dados ETL $date"
-            Write-Host "git commit codigo de saida: $LASTEXITCODE"
-            git push
-            Write-Host "git push codigo de saida: $LASTEXITCODE"
+            Write-Host "Release 'dados-latest' nao encontrado. Criando..."
+            gh release create dados-latest `
+              --title "Dados Latest" `
+              --notes "Dados mais recentes gerados pelo ETL. Atualizado automaticamente todos os dias." `
+              --latest=false
+            Write-Host "Release criado. Codigo de saida: $LASTEXITCODE"
           } else {
-            Write-Host "Sem alteracoes para commitar."
+            Write-Host "Release 'dados-latest' ja existe. Atualizando arquivos..."
           }
+
+          # Faz upload dos .json.gz com --clobber (sobrescreve arquivos existentes)
+          $files = Get-ChildItem data\gz\*.json.gz -ErrorAction SilentlyContinue
+          if ($files.Count -eq 0) {
+            Write-Host "Nenhum arquivo .json.gz encontrado em data/gz/"
+            exit 1
+          }
+
+          foreach ($file in $files) {
+            Write-Host "Fazendo upload: $($file.Name) ($([math]::Round($file.Length/1MB, 2)) MB)"
+            gh release upload dados-latest $file.FullName --clobber
+            Write-Host "Upload de $($file.Name) — codigo de saida: $LASTEXITCODE"
+          }
+
+          Write-Host "Todos os arquivos publicados no release 'dados-latest'."

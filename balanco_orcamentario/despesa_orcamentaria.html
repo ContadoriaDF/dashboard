@@ -650,15 +650,22 @@ let REGISTROS = [];
   overlay.innerHTML = '<div style="font-size:2rem">⏳</div><div>Carregando dados da despesa…</div>';
   document.body.appendChild(overlay);
 
+  // Busca JSON.GZ do GitHub Releases e descomprime via DecompressionStream
+  var GH_RELEASES_BASE = 'https://github.com/contadoria2026/db-dashboard-gdf/releases/download/dados-latest';
+
+  function fetchJsonGz(url) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error(url.split('/').pop() + ' — HTTP ' + r.status);
+      var ds = new DecompressionStream('gzip');
+      return new Response(r.body.pipeThrough(ds)).text();
+    }).then(function (text) {
+      return JSON.parse(text);
+    });
+  }
+
   Promise.all([
-    fetch('../data/despesa.json').then(function (r) {
-      if (!r.ok) throw new Error('despesa.json — HTTP ' + r.status);
-      return r.json();
-    }),
-    fetch('../data/creditos_adicionais.json').then(function (r) {
-      if (!r.ok) throw new Error('creditos_adicionais.json — HTTP ' + r.status);
-      return r.json();
-    })
+    fetchJsonGz(GH_RELEASES_BASE + '/despesa.json.gz'),
+    fetchJsonGz(GH_RELEASES_BASE + '/creditos_adicionais.json.gz')
   ])
     .then(function (results) {
       var seen = {};

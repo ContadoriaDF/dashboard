@@ -563,11 +563,20 @@ let PREVISAO  = [];
   overlay.innerHTML = '<div style="font-size:2rem">⏳</div><div>Carregando dados da receita…</div>';
   document.body.appendChild(overlay);
 
-  fetch('../data/receita.json')
-    .then(function (r) {
+  // Busca JSON.GZ do GitHub Releases e descomprime via DecompressionStream
+  var GH_RELEASES_BASE = 'https://github.com/contadoria2026/db-dashboard-gdf/releases/download/dados-latest';
+
+  function fetchJsonGz(url) {
+    return fetch(url).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
+      var ds = new DecompressionStream('gzip');
+      return new Response(r.body.pipeThrough(ds)).text();
+    }).then(function (text) {
+      return JSON.parse(text);
+    });
+  }
+
+  fetchJsonGz(GH_RELEASES_BASE + '/receita.json.gz')
     .then(function (json) {
       json.dados.forEach(function (r) {
         var cc = parseInt(String(r.cocontacontabil || 0), 10);

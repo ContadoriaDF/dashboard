@@ -169,9 +169,18 @@
   let dadosGlobais = [];
   let grafico = null;
 
-  // Caminho relativo à raiz do repositório (uma pasta acima)
-  fetch('../data/saldo_funcao_subfuncao.json')
-    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  // Busca JSON.GZ do GitHub Releases e descomprime via DecompressionStream
+  const GH_RELEASES_BASE = 'https://github.com/contadoria2026/db-dashboard-gdf/releases/download/dados-latest';
+
+  async function fetchJsonGz(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const ds = new DecompressionStream('gzip');
+    const text = await new Response(response.body.pipeThrough(ds)).text();
+    return JSON.parse(text);
+  }
+
+  fetchJsonGz(`${GH_RELEASES_BASE}/saldo_funcao_subfuncao.json.gz`)
     .then(json => {
       const dt = new Date(json.atualizado_em);
       document.getElementById('atualizado').textContent =
